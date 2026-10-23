@@ -1,476 +1,451 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Procreate → Krita Brush Converter</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drawing instrument</title>
 <style>
-  :root{
-    --bg:#15161a;
-    --panel:#1c1e23;
-    --panel-2:#24262c;
-    --line:#33353c;
-    --ink:#eae7e0;
-    --ink-dim:#a6a3a0;
-    --gold:#e0a63a;
-    --teal:#4e9c8e;
-    --err:#d16a5f;
-  }
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
-  body{
-    background:
-      radial-gradient(1200px 600px at 15% -10%, #1e2027 0%, transparent 60%),
-      var(--bg);
-    color:var(--ink);
-    font-family:'Inter',system-ui,sans-serif;
-    min-height:100vh;
-    line-height:1.5;
-  }
-  .wrap{max-width:920px;margin:0 auto;padding:56px 24px 100px;}
-
-  header{margin-bottom:40px;}
-  .eyebrow{
-    font-family:'IBM Plex Mono',monospace;
-    font-size:12px;letter-spacing:.14em;text-transform:uppercase;
-    color:var(--teal);margin:0 0 14px;
-  }
-  h1{
-    font-family:'Fraunces',serif;
-    font-weight:700;
-    font-size:clamp(32px,5vw,52px);
-    line-height:1.05;
-    margin:0 0 16px;
-    letter-spacing:-.01em;
-  }
-  h1 em{
-    font-style:italic;font-weight:400;color:var(--gold);
-  }
-  .lede{
-    color:var(--ink-dim);
-    font-size:16px;
-    max-width:58ch;
-    margin:0;
-  }
-
-  .dropzone{
-    margin-top:36px;
-    border:1.5px dashed var(--line);
-    border-radius:14px;
-    background:var(--panel);
-    padding:44px 28px;
-    text-align:center;
-    cursor:pointer;
-    transition:border-color .15s ease, background .15s ease;
-    position:relative;
-  }
-  .dropzone.drag{border-color:var(--gold);background:var(--panel-2);}
-  .dropzone svg{display:block;margin:0 auto 16px;}
-  .dropzone .cta{
-    font-family:'Fraunces',serif;font-size:20px;font-weight:600;margin-bottom:6px;
-  }
-  .dropzone .sub{color:var(--ink-dim);font-size:13.5px;}
-  .dropzone .sub code{
-    font-family:'IBM Plex Mono',monospace;background:var(--panel-2);
-    padding:1px 6px;border-radius:4px;color:var(--ink);
-  }
-  input[type=file]{display:none;}
-
-  .status{
-    margin-top:18px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--ink-dim);
-    min-height:18px;
-  }
-  .status.err{color:var(--err);}
-
-  #results{margin-top:36px;display:flex;flex-direction:column;gap:16px;}
-
-  .bar{
-    display:flex;align-items:center;justify-content:space-between;gap:12px;
-    margin-top:8px;
-  }
-  .bar .count{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--ink-dim);}
-  button{
-    font-family:'Inter',sans-serif;font-weight:600;font-size:13.5px;
-    border-radius:8px;border:1px solid var(--line);
-    background:var(--panel-2);color:var(--ink);
-    padding:9px 16px;cursor:pointer;transition:border-color .15s ease, transform .05s ease;
-  }
-  button:hover{border-color:var(--gold);}
-  button:active{transform:scale(.98);}
-  button.primary{background:var(--gold);color:#1a1508;border-color:var(--gold);}
-  button.primary:hover{filter:brightness(1.08);}
-  button:disabled{opacity:.4;cursor:default;}
-
-  .card{
-    background:var(--panel);border:1px solid var(--line);border-radius:12px;
-    padding:18px 20px;display:flex;gap:18px;align-items:center;
-  }
-  .swatch{
-    width:64px;height:64px;border-radius:8px;flex:none;
-    background-image:
-      linear-gradient(45deg,#2a2c32 25%,transparent 25%),
-      linear-gradient(-45deg,#2a2c32 25%,transparent 25%),
-      linear-gradient(45deg,transparent 75%,#2a2c32 75%),
-      linear-gradient(-45deg,transparent 75%,#2a2c32 75%);
-    background-size:12px 12px;
-    background-position:0 0,0 6px,6px -6px,-6px 0;
-    background-color:#101114;
-    display:flex;align-items:center;justify-content:center;
-    overflow:hidden;
-  }
-  .swatch img{max-width:100%;max-height:100%;image-rendering:pixelated;}
-  .card .meta{flex:1;min-width:0;}
-  .card input.name{
-    width:100%;background:transparent;border:none;border-bottom:1px solid transparent;
-    color:var(--ink);font-family:'Fraunces',serif;font-size:17px;font-weight:600;
-    padding:2px 0;
-  }
-  .card input.name:focus{outline:none;border-bottom-color:var(--gold);}
-  .card .tags{margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;}
-  .tag{
-    font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-dim);
-    background:var(--panel-2);padding:2px 7px;border-radius:5px;border:1px solid var(--line);
-  }
-  .card .actions{flex:none;}
-
-  details.howto{
-    margin-top:44px;background:var(--panel);border:1px solid var(--line);border-radius:12px;
-    padding:4px 20px;
-  }
-  details.howto summary{
-    cursor:pointer;padding:14px 0;font-weight:600;font-family:'Fraunces',serif;font-size:16px;
-    list-style:none;
-  }
-  details.howto summary::-webkit-details-marker{display:none;}
-  details.howto summary::before{content:"→ ";color:var(--gold);}
-  details.howto[open] summary::before{content:"↓ ";}
-  details.howto ol{color:var(--ink-dim);font-size:14.5px;padding-left:20px;margin:0 0 18px;}
-  details.howto li{margin-bottom:8px;}
-  details.howto code{
-    font-family:'IBM Plex Mono',monospace;background:var(--panel-2);
-    padding:1px 6px;border-radius:4px;color:var(--ink);font-size:13px;
-  }
-
-  .note{
-    margin-top:18px;font-size:13px;color:var(--ink-dim);
-    border-left:2px solid var(--gold);padding-left:12px;
-  }
-
-  footer{margin-top:56px;color:var(--ink-dim);font-size:12.5px;font-family:'IBM Plex Mono',monospace;}
+  body { margin: 0; font-family: system-ui, sans-serif; background: #faf8f3; color: #2c2c2a; }
+  header { padding: 16px 20px 8px; display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+  button, select { font: inherit; font-size: 14px; padding: 6px 12px; border: 1px solid #ccc; border-radius: 8px; background: #fff; cursor: pointer; }
+  button:hover { background: #f1efe8; }
+  label { font-size: 13px; color: #666; display: flex; gap: 6px; align-items: center; }
+  #play { min-width: 80px; font-weight: 500; }
+  #status { font-variant-numeric: tabular-nums; font-size: 14px; min-width: 170px; }
+  #wrap { margin: 8px 20px; }
+  #cv { display: block; width: 100%; height: 380px; border-radius: 12px; background: #f1efe8; cursor: crosshair; touch-action: none; }
+  #err { display: none; margin: 12px 20px 0; padding: 10px 14px; border-radius: 8px; background: #fcebeb; color: #791f1f; font-size: 14px; }
+  .hint { margin: 10px 20px; font-size: 13px; color: #888; }
 </style>
+<script>
+  window.onerror = function (msg, src, line) {
+    var e = document.getElementById('err');
+    if (e) { e.style.display = 'block'; e.textContent = 'Something went wrong: ' + msg + ' (line ' + line + ')'; }
+  };
+</script>
 </head>
 <body>
-<div class="wrap">
+<div id="err"></div>
+<header>
+  <button id="play">Play</button>
+  <span id="status">Loading...</span>
+  <label>Mood
+    <select id="mood">
+      <option value="calm">Calm</option>
+      <option value="dreamy">Dreamy</option>
+      <option value="warm">Warm</option>
+    </select>
+  </label>
+  <label>Tempo <input type="range" id="tempo" min="56" max="110" step="1" value="76"> <span id="bpm">76</span></label>
+  <label>Evolve <input type="range" id="evolve" min="0" max="80" step="1" value="30"></label>
+  <label>Echo <input type="range" id="echo" min="0" max="55" step="1" value="30"></label>
+  <label>Length
+    <select id="len">
+      <option value="60">1 min</option>
+      <option value="120">2 min</option>
+      <option value="180">3 min</option>
+      <option value="300" selected>5 min</option>
+      <option value="0">Endless</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="backing" checked> Backing</label>
+  <button id="rand">Surprise me</button>
+  <button id="undo">Undo</button>
+  <button id="clear">Clear</button>
+  <button id="save">Save</button>
+  <button id="load">Load</button>
+  <button id="wav">Export WAV</button>
+</header>
 
-  <header>
-    <p class="eyebrow">Brush Tip Converter</p>
-    <h1>Procreate brushes,<br><em>ready for Krita.</em></h1>
-    <p class="lede">Drop in a <code>.brush</code> or <code>.brushset</code> file. This pulls out every brush's real shape and grain textures and packages a Krita preset (<code>.kpp</code>) around them — no upload, everything happens in your browser.</p>
-  </header>
-
-  <div class="dropzone" id="dropzone">
-    <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-      <path d="M8 26 C8 18, 14 8, 22 8 C29 8, 32 14, 30 19 C34 19, 36 23, 34 27 C32 30, 28 30, 26 30 L12 30 C9 30, 8 28, 8 26 Z" stroke="#e0a63a" stroke-width="1.6" fill="none"/>
-      <path d="M14 30 C14 34, 17 36, 20 33" stroke="#4e9c8e" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-    </svg>
-    <div class="cta">Drop your brush file here</div>
-    <div class="sub">or click to browse — accepts <code>.brush</code>, <code>.brushset</code></div>
-    <input type="file" id="fileInput" accept=".brush,.brushset,.zip">
-  </div>
-
-  <div class="status" id="status"></div>
-
-  <div class="bar" id="bar" style="display:none;">
-    <span class="count" id="count"></span>
-    <button class="primary" id="downloadAll">Download all as .zip</button>
-  </div>
-
-  <div id="results"></div>
-
-  <details class="howto">
-    <summary>How to install the result in Krita</summary>
-    <ol>
-      <li>Unzip the download. Each brush gets a folder with a <code>.kpp</code> preset and a <code>_tip.png</code> (and <code>_grain.png</code> if the brush had one).</li>
-      <li>In Krita: <code>Settings → Manage Resources → Open Resource Folder</code>.</li>
-      <li>Copy the <code>_tip.png</code> file into the <code>brushes</code> folder, and the <code>.kpp</code> into <code>paintoppresets</code>. Put <code>_grain.png</code> into <code>patterns</code> if present.</li>
-      <li>Restart Krita, or use <code>Settings → Manage Resources → Import Resources</code> to add them without restarting.</li>
-      <li>Open the preset (F6) and check the brush tip (F5 → Brush Tip → Predefined). Re-pick the imported PNG there if Krita doesn't auto-link it, and adjust size/spacing/opacity to taste.</li>
-    </ol>
-    <p class="note">The <code>.kpp</code> this generates is a best-effort starting point — it carries over the real brush artwork, but Procreate's shape dynamics, jitter curves and blend settings don't map 1:1 to Krita's engine, so some hand-tuning of the preset is expected. The shape/grain PNGs themselves are always extracted exactly as Procreate stored them.</p>
-  </details>
-
-  <footer>runs entirely client-side · no files leave your browser</footer>
-</div>
+<div id="wrap"><canvas id="cv"></canvas></div>
+<p class="hint">Draw lines anywhere. Higher means higher notes. Flat lines play slowly, wiggly lines play fast. Your drawing loops, and "Evolve" lets it slowly change each time around.</p>
 
 <script>
-const dropzone = document.getElementById('dropzone');
-const fileInput = document.getElementById('fileInput');
-const statusEl = document.getElementById('status');
-const resultsEl = document.getElementById('results');
-const barEl = document.getElementById('bar');
-const countEl = document.getElementById('count');
-const downloadAllBtn = document.getElementById('downloadAll');
+window.addEventListener('load', function () {
 
-let brushes = []; // {name, shapeBytes, grainBytes, shapeUrl}
+var STEPS = 64, LO = 57, HI = 86, TOP = 24;
+var MOODS = {
+  calm:   { root: 2, scale: [0, 3, 5, 7, 10], chords: [['Dm', [2, 5, 9]], ['Bb', [10, 2, 5]], ['F', [5, 9, 0]], ['C', [0, 4, 7]]] },
+  dreamy: { root: 2, scale: [0, 2, 4, 7, 9],  chords: [['D', [2, 6, 9]], ['Bm', [11, 2, 6]], ['G', [7, 11, 2]], ['A', [9, 1, 4]]] },
+  warm:   { root: 7, scale: [0, 2, 4, 7, 9],  chords: [['G', [7, 11, 2]], ['Em', [4, 7, 11]], ['C', [0, 4, 7]], ['D', [2, 6, 9]]] }
+};
+var DEG_COLORS = ['#D85A30', '#BA7517', '#1D9E75', '#378ADD', '#7F77DD', '#D4537E', '#639922'];
+function $(id) { return document.getElementById(id); }
+var cv = $('cv'), ctx = cv.getContext('2d');
 
-dropzone.addEventListener('click', () => fileInput.click());
-dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
-dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
-dropzone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropzone.classList.remove('drag');
-  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-});
-fileInput.addEventListener('change', () => {
-  if (fileInput.files.length) handleFile(fileInput.files[0]);
-});
+var mood = MOODS.calm, scalePitches = [], strokes = [], preview = null;
+var bpm = 76, evolve = 30, echo = 30, lengthSec = 300, backing = true;
+var ac = null, chain = null, playing = false, ended = false, timerId = null;
+var gs = 0, nextTime = 0, curPass = null, curPassIdx = -1, queue = [], visStep = -1, visPass = 0, elapsed = 0, totalPasses = Infinity;
 
-function setStatus(msg, isErr) {
-  statusEl.textContent = msg || '';
-  statusEl.className = 'status' + (isErr ? ' err' : '');
+function stepDur() { return 60 / bpm / 4; }
+function passDur() { return STEPS * stepDur(); }
+function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+function pcOf(p) { return ((p % 12) + 12) % 12; }
+function fmt(s) { return Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0'); }
+function strength(s) { return s % 16 === 0 ? 4 : s % 8 === 0 ? 3 : s % 4 === 0 ? 2 : s % 2 === 0 ? 1 : 0; }
+function chordAt(s) { return mood.chords[Math.floor(s / 16) % 4][1]; }
+function noteColor(p) { return DEG_COLORS[Math.max(0, mood.scale.indexOf(pcOf(p - mood.root))) % 7]; }
+function voice(pc, lo) { var m = lo; while (pcOf(m) !== pc) m++; return m; }
+
+function setMood(k) {
+  mood = MOODS[k]; scalePitches = [];
+  for (var p = LO - 7; p <= HI + 7; p++) if (mood.scale.indexOf(pcOf(p - mood.root)) >= 0) scalePitches.push(p);
+  refresh();
 }
 
-async function handleFile(file) {
-  resultsEl.innerHTML = '';
-  barEl.style.display = 'none';
-  brushes = [];
-  setStatus('Reading ' + file.name + ' …');
-  try {
-    const zip = await JSZip.loadAsync(file);
-    const entries = Object.keys(zip.files);
-
-    const shapeEntries = entries.filter(p => /(^|\/)Shape\.png$/i.test(p));
-    if (shapeEntries.length === 0) {
-      setStatus('No brush shape textures found inside this file. Is it a valid .brush / .brushset?', true);
-      return;
+/* turning drawings into notes */
+function strokeTracks() {
+  return strokes.map(function (st) {
+    var sum = new Float64Array(STEPS), cnt = new Uint16Array(STEPS), first = -1;
+    for (var i = 0; i < st.length; i++) {
+      var s = Math.min(STEPS - 1, Math.floor(st[i].x * STEPS));
+      if (first < 0) first = s;
+      sum[s] += LO + (1 - st[i].y) * (HI - LO); cnt[s]++;
     }
+    var y = [];
+    for (var k = 0; k < STEPS; k++) y.push(cnt[k] ? sum[k] / cnt[k] : NaN);
+    return { y: y, first: first };
+  });
+}
 
-    let idx = 0;
-    for (const shapePath of shapeEntries) {
-      idx++;
-      const dir = shapePath.includes('/') ? shapePath.slice(0, shapePath.lastIndexOf('/')) : '';
-      const grainPath = entries.find(p => p.toLowerCase() === (dir ? dir + '/Grain.png' : 'Grain.png').toLowerCase());
-
-      const shapeBytes = await zip.files[shapePath].async('uint8array');
-      const grainBytes = grainPath ? await zip.files[grainPath].async('uint8array') : null;
-
-      let baseName;
-      if (dir) {
-        baseName = dir.split('/').pop();
-      } else {
-        baseName = file.name.replace(/\.(brush|brushset|zip)$/i, '');
-      }
-      if (shapeEntries.length > 1 && (!dir || /^[0-9a-f-]{8,}$/i.test(baseName))) {
-        baseName = file.name.replace(/\.(brush|brushset|zip)$/i, '') + ' ' + idx;
-      }
-
-      brushes.push({
-        name: baseName,
-        shapeBytes, grainBytes,
-        shapeUrl: URL.createObjectURL(new Blob([shapeBytes], {type:'image/png'})),
-      });
-    }
-
-    setStatus('Found ' + brushes.length + ' brush' + (brushes.length===1?'':'es') + '.');
-    renderResults();
-  } catch (err) {
-    console.error(err);
-    setStatus('Could not read that file: ' + err.message, true);
+function choose(target, s, prev) {
+  var pcs = chordAt(s), wH = [0, 0.3, 0.7, 1.4, 2.2][strength(s)];
+  var best = Math.round(target), bs = -1e9;
+  for (var i = 0; i < scalePitches.length; i++) {
+    var p = scalePitches[i];
+    if (p < LO - 2 || p > HI + 2 || Math.abs(p - target) > 6) continue;
+    var d = p - target, sc = -(d * d) / 5, pc = pcOf(p);
+    if (pcs.indexOf(pc) >= 0) sc += wH;
+    else if (pcs.some(function (c) { var iv = pcOf(pc - c); return iv === 1 || iv === 11 || iv === 6; })) sc -= wH * 0.8;
+    if (prev !== null) { var l = Math.abs(p - prev); if (l > 7) sc -= 0.08 * (l - 7) * (l - 7); if (l === 0) sc -= 0.25; }
+    sc += Math.random() * 0.35;
+    if (sc > bs) { bs = sc; best = p; }
   }
+  return best;
 }
 
-function renderResults() {
-  resultsEl.innerHTML = '';
-  brushes.forEach((b, i) => {
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.innerHTML = `
-      <div class="swatch"><img src="${b.shapeUrl}" alt=""></div>
-      <div class="meta">
-        <input class="name" value="${b.name.replace(/"/g,'&quot;')}" data-i="${i}">
-        <div class="tags">
-          <span class="tag">shape.png ✓</span>
-          ${b.grainBytes ? '<span class="tag">grain.png ✓</span>' : ''}
-        </div>
-      </div>
-      <div class="actions"><button data-i="${i}">Download .kpp</button></div>
-    `;
-    resultsEl.appendChild(card);
-  });
+function layers(pass, total) {
+  if (!backing) return {};
+  if (total > 2 && pass === total - 1) return { pad: 1, thin: 1 };
+  return [{ pad: 1 }, { pad: 1, bass: 1 }, { pad: 1, bass: 1 }, { pad: 1, bass: 1, sparkle: 1 },
+          { pad: 1, bass: 1, sparkle: 1 }, { pad: 1, thin: 1 }, { pad: 1, bass: 1 }, { pad: 1, bass: 1, sparkle: 1 }][pass % 8];
+}
 
-  resultsEl.querySelectorAll('input.name').forEach(inp => {
-    inp.addEventListener('input', () => { brushes[inp.dataset.i].name = inp.value || ('brush_' + inp.dataset.i); });
+function buildPass(pass, total) {
+  var v = pass === 0 ? 0 : evolve / 100, L = layers(pass, total), ev = [];
+  strokeTracks().forEach(function (t) {
+    var prev = null;
+    for (var s = 0; s < STEPS; s++) {
+      var y = t.y[s];
+      if (isNaN(y)) { prev = null; continue; }
+      var str = strength(s), m = (s > 0 && !isNaN(t.y[s - 1])) ? Math.abs(y - t.y[s - 1]) : 0;
+      var need = m < 0.35 ? 2 : m < 1.2 ? 1 : 0;
+      var play = s === t.first || str >= need;
+      if (v) {
+        if (play && str <= 1 && s !== t.first && Math.random() < v * 0.35) play = false;
+        else if (!play && Math.random() < v * 0.12) play = true;
+      }
+      if (L.thin && str < 2 && s !== t.first) play = false;
+      if (!play) continue;
+      var target = Math.max(LO, Math.min(HI, y));
+      if (v && Math.random() < v * 0.6) target += (Math.random() < 0.5 ? -1 : 1) * (2 + Math.random() * 3);
+      var p = choose(target, s, prev); prev = p;
+      if (!ev.some(function (e) { return e.s === s && e.p === p; })) ev.push({ s: s, p: p, vel: 0.6 + 0.1 * str });
+    }
   });
-  resultsEl.querySelectorAll('.actions button').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      btn.disabled = true; btn.textContent = 'Building…';
-      try {
-        const blob = await buildBrushZip(brushes[btn.dataset.i]);
-        triggerDownload(blob, slug(brushes[btn.dataset.i].name) + '_krita.zip');
-      } catch(e) { console.error(e); alert('Something went wrong building this brush: ' + e.message); }
-      btn.disabled = false; btn.textContent = 'Download .kpp';
+  return { ev: ev, L: L };
+}
+
+/* sound */
+function buildChain(c) {
+  var out = c.createGain(); out.connect(c.destination);
+  var comp = c.createDynamicsCompressor(); comp.threshold.value = -14; comp.connect(out);
+  var len = Math.floor(c.sampleRate * 3), buf = c.createBuffer(2, len, c.sampleRate);
+  for (var k = 0; k < 2; k++) { var d = buf.getChannelData(k); for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
+  var conv = c.createConvolver(); conv.buffer = buf;
+  var wet = c.createGain(); wet.gain.value = 0.5; conv.connect(wet); wet.connect(comp);
+  var dly = c.createDelay(4); dly.delayTime.value = stepDur() * 3;
+  var fb = c.createGain(); fb.gain.value = echo / 100;
+  var lead = c.createGain(); lead.gain.value = 0.5;
+  lead.connect(comp); lead.connect(conv); lead.connect(dly);
+  dly.connect(fb); fb.connect(dly); dly.connect(conv); dly.connect(comp);
+  var padIn = c.createGain(); padIn.connect(comp); padIn.connect(conv);
+  var bassIn = c.createGain(); bassIn.connect(comp);
+  return { out: out, lead: lead, padIn: padIn, bassIn: bassIn, dly: dly, fb: fb };
+}
+
+function bell(c, dest, f, t, vel) {
+  [[1, 0.5, 2.4], [2, 0.15, 1.1], [3.01, 0.06, 0.5]].forEach(function (h) {
+    var o = c.createOscillator(), g = c.createGain();
+    o.type = 'sine'; o.frequency.value = f * h[0];
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(h[1] * 0.4 * vel, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + h[2]);
+    o.connect(g); g.connect(dest); o.start(t); o.stop(t + h[2] + 0.05);
+  });
+}
+
+function pad(c, dest, pcs, t, dur) {
+  pcs.forEach(function (pc) {
+    var f = mtof(voice(pc, 52));
+    [-4, 4].forEach(function (det) {
+      var o = c.createOscillator(), g = c.createGain(), lp = c.createBiquadFilter();
+      o.type = 'triangle'; o.frequency.value = f; o.detune.value = det;
+      lp.type = 'lowpass'; lp.frequency.value = 900;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.035, t + 0.9);
+      g.gain.setValueAtTime(0.035, t + dur - 0.2);
+      g.gain.linearRampToValueAtTime(0, t + dur + 1.2);
+      o.connect(lp); lp.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + 1.3);
     });
   });
-
-  barEl.style.display = 'flex';
-  countEl.textContent = brushes.length + ' brush' + (brushes.length===1?'':'es') + ' ready';
 }
 
-downloadAllBtn.addEventListener('click', async () => {
-  downloadAllBtn.disabled = true; downloadAllBtn.textContent = 'Building…';
-  try {
-    const zip = new JSZip();
-    for (const b of brushes) {
-      const folder = zip.folder(slug(b.name));
-      await addBrushToZip(folder, b);
-    }
-    const blob = await zip.generateAsync({type:'blob'});
-    triggerDownload(blob, 'krita_brushes.zip');
-  } catch(e) { console.error(e); alert('Build failed: ' + e.message); }
-  downloadAllBtn.disabled = false; downloadAllBtn.textContent = 'Download all as .zip';
-});
-
-function slug(s) {
-  return (s || 'brush').trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'') || 'brush';
-}
-
-async function buildBrushZip(b) {
-  const zip = new JSZip();
-  await addBrushToZip(zip, b);
-  return zip.generateAsync({type:'blob'});
-}
-
-async function addBrushToZip(folder, b) {
-  const name = slug(b.name);
-  const tipFilename = name + '_tip.png';
-  const kppBytes = await buildKpp(b, tipFilename);
-  folder.file(name + '.kpp', kppBytes);
-  folder.file(tipFilename, b.shapeBytes);
-  if (b.grainBytes) folder.file(name + '_grain.png', b.grainBytes);
-  folder.file('README.txt', readmeText(name, tipFilename, !!b.grainBytes));
-}
-
-function readmeText(name, tipFilename, hasGrain) {
-  return `${name} — Krita brush preset (auto-converted from Procreate)
-=======================================================
-
-Files in this folder:
-  ${name}.kpp        the Krita preset — put this in your "paintoppresets" resource folder
-  ${tipFilename}      the brush tip artwork — put this in your "brushes" resource folder
-${hasGrain ? `  ${name}_grain.png   the grain texture — put this in your "patterns" resource folder\n` : ''}
-Install:
-  1. In Krita, go to Settings > Manage Resources > Open Resource Folder.
-  2. Copy the files above into the matching subfolders (brushes / paintoppresets / patterns).
-  3. Restart Krita, or use Settings > Manage Resources > Import Resources instead of restarting.
-  4. Select the preset (F6) and open the brush editor (F5). If the tip doesn't show up
-     automatically, go to Brush Tip > Predefined and import ${tipFilename} manually.
-  5. Adjust size, spacing and opacity to taste — Procreate's brush dynamics don't map
-     1:1 onto Krita's engine, so this preset is a solid starting point, not a perfect clone.
-`;
-}
-
-// ---- Build a .kpp (a PNG with an embedded "Preset" tEXt chunk) ----
-async function buildKpp(b, tipFilename) {
-  const iconPng = await makeIconPng(b.shapeUrl);
-  const xml = buildPresetXml(b.name, tipFilename);
-  return insertTextChunk(iconPng, 'Preset', xml);
-}
-
-function makeIconPng(shapeUrl) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const size = 200;
-      const canvas = document.createElement('canvas');
-      canvas.width = size; canvas.height = size;
-      const ctx = canvas.getContext('2d');
-      // checkerboard so transparent shapes stay visible as an icon
-      const tile = 10;
-      for (let y = 0; y < size; y += tile) {
-        for (let x = 0; x < size; x += tile) {
-          ctx.fillStyle = ((x/tile + y/tile) % 2 === 0) ? '#dcdcdc' : '#f4f4f4';
-          ctx.fillRect(x, y, tile, tile);
-        }
-      }
-      const scale = Math.min(size / img.width, size / img.height) * 0.85;
-      const w = img.width * scale, h = img.height * scale;
-      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-      canvas.toBlob(blob => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(new Uint8Array(reader.result));
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(blob);
-      }, 'image/png');
-    };
-    img.onerror = reject;
-    img.src = shapeUrl;
+function bass(c, dest, pc, t, vel) {
+  var f = mtof(voice(pc, 38));
+  [[1, 'sine', 0.28], [2, 'triangle', 0.05]].forEach(function (h) {
+    var o = c.createOscillator(), g = c.createGain();
+    o.type = h[1]; o.frequency.value = f * h[0];
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(h[2] * vel, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
+    o.connect(g); g.connect(dest); o.start(t); o.stop(t + 1.5);
   });
 }
 
-function buildPresetXml(name, tipFilename) {
-  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  return `<!DOCTYPE Preset>
-<Preset paintopid="paintbrush" name="${esc(name)}">
-<param name="brush_definition">&lt;Brush type=&quot;kis_predefined&quot; filename=&quot;${esc(tipFilename)}&quot; spacing=&quot;0.1&quot; scale=&quot;1.0&quot; angle=&quot;0.0&quot; useColorAsMask=&quot;0&quot; hasColor=&quot;0&quot; autoSpacingActive=&quot;1&quot; autoSpacingCoeff=&quot;0.8&quot;/&gt;</param>
-<param name="paintOpacity">1.0</param>
-<param name="a_opacity">1.0</param>
-<param name="PaintOpAction">2</param>
-<param name="Texture/enabled">0</param>
-</Preset>`;
+function scheduleStep(c, ch, cp, s, t) {
+  var sd = stepDur(), L = cp.L;
+  if (s % 16 === 0 && L.pad) pad(c, ch.padIn, chordAt(s), t, sd * 16);
+  if (L.bass && (s % 16 === 0 || s % 16 === 8)) bass(c, ch.bassIn, chordAt(s)[0], t, s % 16 === 0 ? 1 : 0.7);
+  cp.ev.forEach(function (e) {
+    if (e.s !== s) return;
+    bell(c, ch.lead, mtof(e.p), t, e.vel);
+    if (L.sparkle && strength(s) >= 3) bell(c, ch.lead, mtof(e.p + 12), t + sd * 2, e.vel * 0.35);
+  });
 }
 
-// ---- Minimal PNG chunk surgery: insert a tEXt chunk right after IHDR ----
-const CRC_TABLE = (() => {
-  const t = new Uint32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
-    t[n] = c >>> 0;
+function scheduleEnding(c, ch, t) {
+  pad(c, ch.padIn, mood.chords[0][1], t, 3);
+  bell(c, ch.lead, mtof(voice(pcOf(mood.root), 62)), t, 0.8);
+  bass(c, ch.bassIn, mood.chords[0][1][0], t, 1);
+}
+
+function initAudio() {
+  if (!ac) { ac = new (window.AudioContext || window.webkitAudioContext)(); chain = buildChain(ac); }
+  ac.resume();
+}
+
+/* playback */
+function computeTotal() { return lengthSec ? Math.max(1, Math.round(lengthSec / passDur())) : Infinity; }
+
+function scheduler() {
+  while (nextTime < ac.currentTime + 0.2) {
+    if (gs >= totalPasses * STEPS) {
+      if (!ended) { ended = true; scheduleEnding(ac, chain, nextTime); queue.push({ end: true, time: nextTime + 4 }); }
+      return;
+    }
+    var s = gs % STEPS, pass = Math.floor(gs / STEPS);
+    if (s === 0 || !curPass || curPassIdx !== pass) { curPass = buildPass(pass, totalPasses); curPassIdx = pass; }
+    scheduleStep(ac, chain, curPass, s, nextTime);
+    queue.push({ s: s, pass: pass, gs: gs, time: nextTime });
+    gs++; nextTime += stepDur();
   }
-  return t;
-})();
-function crc32(bytes) {
-  let c = 0xFFFFFFFF;
-  for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
-  return (c ^ 0xFFFFFFFF) >>> 0;
-}
-function u32be(n) {
-  return new Uint8Array([(n>>>24)&255, (n>>>16)&255, (n>>>8)&255, n&255]);
-}
-function concatBytes(arrs) {
-  const total = arrs.reduce((s,a) => s + a.length, 0);
-  const out = new Uint8Array(total);
-  let off = 0;
-  for (const a of arrs) { out.set(a, off); off += a.length; }
-  return out;
-}
-function insertTextChunk(pngBytes, keyword, text) {
-  const sig = pngBytes.slice(0, 8);
-  let pos = 8;
-  const ihdrLen = (pngBytes[pos]<<24 | pngBytes[pos+1]<<16 | pngBytes[pos+2]<<8 | pngBytes[pos+3]) >>> 0;
-  const ihdrChunk = pngBytes.slice(pos, pos + 8 + ihdrLen + 4); // length+type+data+crc
-  const rest = pngBytes.slice(pos + 8 + ihdrLen + 4);
-
-  const keywordBytes = new TextEncoder().encode(keyword);
-  const textBytes = new TextEncoder().encode(text);
-  const data = concatBytes([keywordBytes, new Uint8Array([0]), textBytes]);
-  const type = new TextEncoder().encode('tEXt');
-  const crc = crc32(concatBytes([type, data]));
-  const textChunk = concatBytes([u32be(data.length), type, data, u32be(crc)]);
-
-  return concatBytes([sig, ihdrChunk, textChunk, rest]);
 }
 
-function triggerDownload(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
+function anim() {
+  if (!playing) return;
+  var now = ac.currentTime;
+  while (queue.length && queue[0].time <= now) {
+    var q = queue.shift();
+    if (q.end) { stopPlaying(); return; }
+    visStep = q.s; visPass = q.pass; elapsed = q.gs * stepDur();
+  }
+  updStatus(); draw(); requestAnimationFrame(anim);
 }
+
+function startPlaying() {
+  if (!strokes.length) surprise();
+  initAudio();
+  chain.out.gain.cancelScheduledValues(ac.currentTime); chain.out.gain.setValueAtTime(1, ac.currentTime);
+  chain.dly.delayTime.value = stepDur() * 3;
+  totalPasses = computeTotal();
+  playing = true; ended = false; gs = 0; curPass = null; curPassIdx = -1; queue = [];
+  nextTime = ac.currentTime + 0.06;
+  timerId = setInterval(scheduler, 25); scheduler();
+  $('play').textContent = 'Stop';
+  requestAnimationFrame(anim);
+}
+
+function stopPlaying() {
+  playing = false; clearInterval(timerId); visStep = -1;
+  $('play').textContent = 'Play';
+  if (ac) {
+    var t = ac.currentTime;
+    chain.out.gain.cancelScheduledValues(t); chain.out.gain.setValueAtTime(chain.out.gain.value, t);
+    chain.out.gain.linearRampToValueAtTime(0, t + 0.6);
+  }
+  updStatus(); draw();
+}
+
+function updStatus() {
+  var tot = lengthSec ? fmt(computeTotal() * passDur()) : 'endless';
+  $('status').textContent = (playing && visStep >= 0) ? ('Loop ' + (visPass + 1) + ' - ' + fmt(elapsed) + ' / ' + tot) : ('Ready - ' + tot);
+}
+
+/* drawing the screen */
+function draw() {
+  var dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (!w || !h) return;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+  var H = h - TOP;
+  function yOf(p) { return TOP + (1 - (p - LO) / (HI - LO)) * H; }
+  function xOf(s) { return (s + 0.5) / STEPS * w; }
+  ctx.font = '12px system-ui, sans-serif';
+  for (var b = 0; b < 4; b++) {
+    if (b % 2) { ctx.fillStyle = 'rgba(0,0,0,0.025)'; ctx.fillRect(b * w / 4, 0, w / 4, h); }
+    ctx.fillStyle = '#888'; ctx.fillText(mood.chords[b][0], b * w / 4 + 8, 16);
+  }
+  for (var s = 0; s < STEPS; s += 4) { ctx.fillStyle = s % 16 === 0 ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.05)'; ctx.fillRect(s / STEPS * w, TOP, 1, H); }
+  scalePitches.forEach(function (p) {
+    if (p < LO || p > HI) return;
+    ctx.fillStyle = pcOf(p) === pcOf(mood.root) ? 'rgba(0,0,0,0.09)' : 'rgba(0,0,0,0.035)';
+    ctx.fillRect(0, yOf(p), w, 1);
+  });
+  if (!strokes.length) {
+    ctx.fillStyle = '#aaa'; ctx.font = '15px system-ui, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Draw a line here', w / 2, h / 2); ctx.textAlign = 'left';
+  }
+  ctx.strokeStyle = 'rgba(83,74,183,0.22)'; ctx.fillStyle = 'rgba(83,74,183,0.22)';
+  ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  strokes.forEach(function (st) {
+    if (st.length === 1) { ctx.beginPath(); ctx.arc(st[0].x * w, TOP + st[0].y * H, 3, 0, 7); ctx.fill(); return; }
+    ctx.beginPath();
+    st.forEach(function (pt, j) { var x = pt.x * w, y = TOP + pt.y * H; if (j) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+    ctx.stroke();
+  });
+  var cp = (playing && curPass) ? curPass : preview;
+  if (cp) cp.ev.forEach(function (e) {
+    var hit = playing && e.s === visStep;
+    ctx.fillStyle = noteColor(e.p); ctx.beginPath(); ctx.arc(xOf(e.s), yOf(e.p), hit ? 9 : 5, 0, 7); ctx.fill();
+  });
+  if (playing && visStep >= 0) { ctx.fillStyle = '#D85A30'; ctx.fillRect(visStep / STEPS * w, TOP, 2, H); }
+}
+
+function refresh() {
+  preview = buildPass(0, Infinity);
+  if (playing && curPassIdx >= 0) curPass = buildPass(curPassIdx, totalPasses);
+  draw();
+}
+
+/* input */
+var drawing = null, lastPrevStep = -1;
+function ptFrom(e) {
+  var r = cv.getBoundingClientRect();
+  return { x: Math.max(0, Math.min(0.9999, (e.clientX - r.left) / r.width)), y: Math.max(0, Math.min(1, (e.clientY - r.top - TOP) / (r.height - TOP))) };
+}
+function previewNote(pt) {
+  var s = Math.floor(pt.x * STEPS);
+  if (s === lastPrevStep) return;
+  lastPrevStep = s;
+  var p = choose(LO + (1 - pt.y) * (HI - LO), s, null);
+  bell(ac, chain.lead, mtof(p), ac.currentTime, playing ? 0.3 : 0.5);
+}
+cv.addEventListener('pointerdown', function (e) {
+  e.preventDefault();
+  try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+  initAudio();
+  drawing = [ptFrom(e)]; strokes.push(drawing); lastPrevStep = -1;
+  previewNote(drawing[0]); draw();
+});
+cv.addEventListener('pointermove', function (e) {
+  if (!drawing) return;
+  var p = ptFrom(e), q = drawing[drawing.length - 1];
+  var n = Math.ceil(Math.hypot(p.x - q.x, p.y - q.y) / 0.004);
+  for (var i = 1; i <= n; i++) drawing.push({ x: q.x + (p.x - q.x) * i / n, y: q.y + (p.y - q.y) * i / n });
+  previewNote(p); draw();
+});
+function endStroke() { if (drawing) { drawing = null; refresh(); } }
+cv.addEventListener('pointerup', endStroke);
+cv.addEventListener('pointercancel', endStroke);
+
+function surprise() {
+  strokes = [];
+  var ph = [Math.random() * 6, Math.random() * 6, Math.random() * 6];
+  [[0.01, 0.235], [0.26, 0.485], [0.51, 0.735], [0.76, 0.97]].forEach(function (seg, k) {
+    var st = [];
+    for (var x = seg[0]; x <= seg[1]; x += 0.003) {
+      var y = 0.5 + 0.18 * Math.sin(x * 9 + ph[0]) + 0.1 * Math.sin(x * 23 + ph[1]) * (k % 2 ? 1.4 : 0.6) + 0.05 * Math.sin(x * 61 + ph[2]);
+      st.push({ x: x, y: Math.max(0.05, Math.min(0.95, y)) });
+    }
+    strokes.push(st);
+  });
+  refresh();
+}
+
+/* controls */
+$('play').onclick = function () { if (playing) stopPlaying(); else startPlaying(); };
+$('mood').onchange = function (e) { setMood(e.target.value); };
+$('tempo').oninput = function (e) { bpm = +e.target.value; $('bpm').textContent = bpm; if (chain) chain.dly.delayTime.value = stepDur() * 3; updStatus(); };
+$('evolve').oninput = function (e) { evolve = +e.target.value; };
+$('echo').oninput = function (e) { echo = +e.target.value; if (chain) chain.fb.gain.value = echo / 100; };
+$('len').onchange = function (e) { lengthSec = +e.target.value; if (playing) totalPasses = Math.max(computeTotal(), curPassIdx + 1); updStatus(); };
+$('backing').onchange = function (e) { backing = e.target.checked; refresh(); };
+$('rand').onclick = surprise;
+$('undo').onclick = function () { strokes.pop(); refresh(); };
+$('clear').onclick = function () { strokes = []; refresh(); };
+$('save').onclick = function () {
+  localStorage.setItem('drawingInstrument2', JSON.stringify({ strokes: strokes, mood: $('mood').value, bpm: bpm, evolve: evolve, echo: echo, lengthSec: lengthSec, backing: backing }));
+  alert('Saved in this browser');
+};
+$('load').onclick = function () {
+  var d = JSON.parse(localStorage.getItem('drawingInstrument2') || 'null');
+  if (!d) { alert('Nothing saved yet'); return; }
+  strokes = d.strokes; bpm = d.bpm; evolve = d.evolve; echo = d.echo; lengthSec = d.lengthSec; backing = d.backing;
+  $('mood').value = d.mood; $('tempo').value = bpm; $('bpm').textContent = bpm; $('evolve').value = evolve;
+  $('echo').value = echo; $('len').value = lengthSec; $('backing').checked = backing;
+  if (chain) { chain.fb.gain.value = echo / 100; chain.dly.delayTime.value = stepDur() * 3; }
+  setMood(d.mood); updStatus();
+};
+
+$('wav').onclick = function () {
+  if (!strokes.length) { alert('Draw something first'); return; }
+  var btn = $('wav'); btn.textContent = 'Rendering...'; btn.disabled = true;
+  var sd = stepDur(), total = Math.max(1, Math.round((lengthSec || 300) / passDur()));
+  var dur = total * passDur() + 5, oc = new OfflineAudioContext(2, Math.ceil(44100 * dur), 44100), ch = buildChain(oc), cp = null;
+  for (var g = 0; g < total * STEPS; g++) {
+    var s = g % STEPS;
+    if (s === 0) cp = buildPass(Math.floor(g / STEPS), total);
+    scheduleStep(oc, ch, cp, s, 0.05 + g * sd);
+  }
+  scheduleEnding(oc, ch, 0.05 + total * STEPS * sd);
+  oc.startRendering().then(function (buf) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(encodeWav(buf)); a.download = 'my-piece.wav'; a.click();
+  }).finally(function () { btn.textContent = 'Export WAV'; btn.disabled = false; });
+};
+
+function encodeWav(b) {
+  var n = b.length, dv = new DataView(new ArrayBuffer(44 + n * 4));
+  function w(o, s) { for (var i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); }
+  w(0, 'RIFF'); dv.setUint32(4, 36 + n * 4, true); w(8, 'WAVE'); w(12, 'fmt ');
+  dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 2, true);
+  dv.setUint32(24, b.sampleRate, true); dv.setUint32(28, b.sampleRate * 4, true);
+  dv.setUint16(32, 4, true); dv.setUint16(34, 16, true); w(36, 'data'); dv.setUint32(40, n * 4, true);
+  var L = b.getChannelData(0), R = b.getChannelData(1), o = 44;
+  for (var i = 0; i < n; i++) {
+    dv.setInt16(o, Math.max(-1, Math.min(1, L[i])) * 32767, true); o += 2;
+    dv.setInt16(o, Math.max(-1, Math.min(1, R[i])) * 32767, true); o += 2;
+  }
+  return new Blob([dv], { type: 'audio/wav' });
+}
+
+window.addEventListener('resize', draw);
+setMood('calm');
+updStatus();
+
+});
 </script>
 </body>
 </html>
